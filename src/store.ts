@@ -200,8 +200,10 @@ function handleOutput(store: Store, ev: OutputEvent) {
 
 function pushLines(live: LiveRun, stream: LogLine["stream"], data: string) {
   for (const text of data.split("\n")) {
-    if (text.length === 0) continue;
-    live.logs.push({ stream, text });
+    // 去掉 Windows CRLF 遗留的 \r，保证日志区按行渲染
+    const clean = text.replace(/\r+$/, "");
+    if (clean.length === 0) continue;
+    live.logs.push({ stream, text: clean });
   }
   if (live.logs.length > MAX_LOG_LINES) {
     live.logs.splice(0, live.logs.length - MAX_LOG_LINES);
