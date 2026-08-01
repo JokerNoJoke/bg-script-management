@@ -7,7 +7,6 @@ import type {
   RunStatus,
   Script,
   ShellConfig,
-  ShellKind,
 } from "./types";
 
 export const MAX_LOG_LINES = 2000;
@@ -231,13 +230,6 @@ export const statusMeta: Record<RunStatus, { label: string; tone: string }> = {
   timeout: { label: "超时", tone: "timeout" },
   interrupted: { label: "中断", tone: "interrupted" },
   error: { label: "错误", tone: "failed" },
-};
-
-export const shellKindLabel: Record<ShellKind, string> = {
-  powershell: "PowerShell",
-  cmd: "cmd",
-  bash: "bash",
-  sh: "sh",
 };
 
 export function shellLabel(id: string): string {

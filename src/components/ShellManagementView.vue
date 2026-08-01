@@ -1,26 +1,19 @@
 <script setup lang="ts">
 import { computed, onActivated, onMounted, reactive, ref } from "vue";
 import { api } from "../api";
-import { shellKindLabel, store } from "../store";
-import type { ShellConfig, ShellKind } from "../types";
+import { store } from "../store";
+import type { ShellConfig } from "../types";
 import Button from "./ui/Button.vue";
 import Confirm from "./ui/Confirm.vue";
 import Input from "./ui/Input.vue";
 import Modal from "./ui/Modal.vue";
-import Select from "./ui/Select.vue";
-import type { SelectOption } from "./ui/Select.vue";
 import Table from "./ui/Table.vue";
 import type { TableColumn } from "./ui/Table.vue";
 import Tag from "./ui/Tag.vue";
 import Textarea from "./ui/Textarea.vue";
 
-const kindOptions: SelectOption[] = (
-  ["powershell", "cmd", "bash", "sh"] as ShellKind[]
-).map((k) => ({ value: k, label: shellKindLabel[k] }));
-
 const columns: TableColumn[] = [
   { key: "name", label: "名称" },
-  { key: "kind", label: "种类", slot: "kind" },
   { key: "exe", label: "可执行文件", slot: "exe" },
   { key: "args", label: "参数", slot: "args" },
   { key: "source", label: "来源", slot: "source" },
@@ -34,7 +27,6 @@ const editingId = ref<string | null>(null);
 const saving = ref(false);
 const form = reactive({
   name: "",
-  kind: "powershell" as ShellKind,
   exe: "",
   argsText: "",
 });
@@ -53,7 +45,6 @@ onActivated(refreshShells);
 function openCreate() {
   editingId.value = null;
   form.name = "";
-  form.kind = "powershell";
   form.exe = "";
   form.argsText = "";
   errors.name = false;
@@ -64,7 +55,6 @@ function openCreate() {
 function openEdit(shell: ShellConfig) {
   editingId.value = shell.id;
   form.name = shell.name;
-  form.kind = shell.kind;
   form.exe = shell.exe;
   form.argsText = shell.args.join("\n");
   errors.name = false;
@@ -88,7 +78,6 @@ async function save() {
   const shell: ShellConfig = {
     id: editingId.value ?? "",
     name: form.name.trim(),
-    kind: form.kind,
     exe: form.exe.trim(),
     args: parseArgs(form.argsText),
     builtin: false,
@@ -147,9 +136,6 @@ function joinArgs(args: string[]): string {
     </div>
 
     <Table :columns="columns" :rows="rows">
-      <template #kind="{ row }">
-        {{ shellKindLabel[asShell(row).kind] }}
-      </template>
       <template #exe="{ value }">
         <code class="mono">{{ value }}</code>
       </template>
@@ -177,14 +163,6 @@ function joinArgs(args: string[]): string {
         <Input v-model="form.name" :error="errors.name" placeholder="显示名称，如 Git Bash">
           <template #label>名称 *</template>
         </Input>
-        <div class="form-row">
-          <label class="form-label">种类 *</label>
-          <Select
-            :model-value="form.kind"
-            :options="kindOptions"
-            @update:model-value="form.kind = $event as ShellKind"
-          />
-        </div>
         <Input
           v-model="form.exe"
           :error="errors.exe"
@@ -273,17 +251,6 @@ function joinArgs(args: string[]): string {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-.form-row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.form-label {
-  font-size: var(--font-xs);
-  color: var(--text-secondary);
 }
 
 .form-actions {

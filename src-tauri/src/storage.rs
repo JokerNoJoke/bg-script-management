@@ -83,6 +83,7 @@ pub async fn load_shells(dir: &Path) -> Vec<ShellConfig> {
 }
 
 pub async fn save_shell(dir: &Path, mut shell: ShellConfig) -> Result<ShellConfig, String> {
+    shell.kind = ShellConfig::infer_kind(&shell.exe);
     ensure_dir(dir).await?;
     let mut shells = load_shells(dir).await;
     if shell.id.is_empty() {
@@ -409,6 +410,27 @@ mod tests {
         let res = delete_shell(&dir, &shell.id).await;
         assert!(res.is_err(), "被脚本引用的自定义 Shell 不应可删除");
         // 未被引用时删除应成功
+        let _ = fs::remove_dir_all(&dir).await;
+    }
+
+    #[tokio::test]
+    async fn save_shell_infers_kind_from_exe() {
+        let dir = temp_dir().await;
+        let shell = save_shell(
+            &dir,
+            ShellConfig {
+                id: String::new(),
+                name: "Git Bash".into(),
+                // 前端不再下发 kind，serde 缺省为 PowerShell；保存时按 exe 推断
+                kind: ShellKind::PowerShell,
+                exe: "C:/Program Files/Git/bin/bash.exe".into(),
+                args: vec![],
+                builtin: false,
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(shell.kind, ShellKind::Bash);
         let _ = fs::remove_dir_all(&dir).await;
     }
 

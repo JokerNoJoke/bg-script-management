@@ -1,7 +1,5 @@
 // 与后端 src-tauri/src/models.rs 一一对应（camelCase 契约）
 
-export type ShellKind = "powershell" | "cmd" | "bash" | "sh";
-
 export type ExecType = "command" | "file";
 
 export type RunStatus =
@@ -16,7 +14,6 @@ export type RunStatus =
 export interface ShellConfig {
   id: string;
   name: string;
-  kind: ShellKind;
   exe: string;
   args: string[];
   builtin: boolean;

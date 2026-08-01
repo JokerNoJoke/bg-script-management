@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::path::Path;
 
 pub fn now_ms() -> u64 {
     std::time::SystemTime::now()
@@ -33,9 +34,8 @@ mod tests {
         assert_eq!(exit["code"], 2);
     }
 
-    /// 回归：`ShellKind::PowerShell` 必须序列化为前端契约里的 `powershell`，
-    /// 而不是 serde camelCase 推导的 `powerShell`，否则 Shell 管理页种类列与
-    /// 编辑表单下拉都取不到对应 label。
+    /// 回归：`ShellKind::PowerShell` 必须序列化为 `powershell`，而不是 serde camelCase
+    /// 推导的 `powerShell`，否则 shells.json 落盘后回读对不上，运行执行语义会错。
     #[test]
     fn shell_kind_serializes_to_frontend_contract() {
         for (kind, expect) in [
@@ -48,13 +48,36 @@ mod tests {
             assert_eq!(v.as_str().unwrap(), expect);
         }
     }
+
+    #[test]
+    fn infer_kind_from_exe_name() {
+        assert_eq!(
+            ShellConfig::infer_kind("C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"),
+            ShellKind::PowerShell
+        );
+        assert_eq!(ShellConfig::infer_kind("pwsh.exe"), ShellKind::PowerShell);
+        assert_eq!(
+            ShellConfig::infer_kind("C:\\Windows\\System32\\cmd.exe"),
+            ShellKind::Cmd
+        );
+        assert_eq!(ShellConfig::infer_kind("cmd"), ShellKind::Cmd);
+        assert_eq!(ShellConfig::infer_kind("/bin/bash"), ShellKind::Bash);
+        assert_eq!(
+            ShellConfig::infer_kind("C:\\Program Files\\Git\\bin\\bash.exe"),
+            ShellKind::Bash
+        );
+        assert_eq!(ShellConfig::infer_kind("sh"), ShellKind::Sh);
+        // 未识别 → 缺省 PowerShell
+        assert_eq!(ShellConfig::infer_kind("custom-tool.exe"), ShellKind::PowerShell);
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum ShellKind {
-    // camelCase 会把 PowerShell 推导成 powerShell，与前端契约（types.ts 的
-    // "powershell"）不一致，必须显式覆写为小写 p。
+    // camelCase 会把 PowerShell 推导成 powerShell，为保持 shells.json 落盘稳定
+    // 与历史数据兼容，必须显式覆写为小写 p。
+    #[default]
     #[serde(rename = "powershell")]
     PowerShell,
     Cmd,
@@ -108,6 +131,8 @@ pub struct Script {
 pub struct ShellConfig {
     pub id: String,
     pub name: String,
+    // 前端不再下发 kind，由 save_shell 根据可执行文件名推断，故缺省即可
+    #[serde(default)]
     pub kind: ShellKind,
     pub exe: String,
     #[serde(default)]
@@ -124,6 +149,25 @@ impl ShellConfig {
             exe: exe.to_string(),
             args,
             builtin: true,
+        }
+    }
+
+    /// 从可执行文件名推断种类。顺序不能乱：`bash` 含 `sh`、`pwsh` 含 `sh`。
+    pub fn infer_kind(exe: &str) -> ShellKind {
+        let name = Path::new(exe)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+        if name.contains("pwsh") || name.contains("powershell") {
+            ShellKind::PowerShell
+        } else if name.contains("cmd") {
+            ShellKind::Cmd
+        } else if name.contains("bash") {
+            ShellKind::Bash
+        } else if name.contains("sh") {
+            ShellKind::Sh
+        } else {
+            ShellKind::PowerShell
         }
     }
 }
