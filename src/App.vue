@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
 import Toast from "./components/ui/Toast.vue";
 import { store } from "./store";
@@ -7,6 +7,11 @@ import { store } from "./store";
 const route = useRoute();
 const runningCount = computed(() => store.runningCount);
 const pageTitle = computed(() => (route.meta.title as string | undefined) ?? "");
+
+// 脚本表单 / 快速执行依赖 store.shells；Shell 管理页之外也需在启动时加载
+onMounted(() => {
+  void store.refreshShells();
+});
 
 interface NavItem {
   to: string;

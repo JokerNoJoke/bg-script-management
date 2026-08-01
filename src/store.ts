@@ -65,7 +65,8 @@ store = reactive<Store>({
   toasts: [],
 
   get runningCount() {
-    return Object.keys(store.live).length;
+    // 徽标语义为「运行中任务数」：已结束但尚未清除的卡片不计入
+    return Object.values(store.live).filter((r) => r.record.status === "running").length;
   },
 
   get defaultShellId() {

@@ -373,6 +373,46 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn delete_referenced_custom_shell_rejected() {
+        let dir = temp_dir().await;
+        let shell = save_shell(
+            &dir,
+            ShellConfig {
+                id: String::new(),
+                name: "自定义".into(),
+                kind: ShellKind::Cmd,
+                exe: "/custom/cmd".into(),
+                args: vec![],
+                builtin: false,
+            },
+        )
+        .await
+        .unwrap();
+        save_script(
+            &dir,
+            Script {
+                id: String::new(),
+                name: "引用者".into(),
+                description: String::new(),
+                shell_id: shell.id.clone(),
+                exec_type: Default::default(),
+                command: "echo hi".into(),
+                cwd: None,
+                env: Default::default(),
+                timeout_sec: 0,
+                created_at: 0,
+                updated_at: 0,
+            },
+        )
+        .await
+        .unwrap();
+        let res = delete_shell(&dir, &shell.id).await;
+        assert!(res.is_err(), "被脚本引用的自定义 Shell 不应可删除");
+        // 未被引用时删除应成功
+        let _ = fs::remove_dir_all(&dir).await;
+    }
+
+    #[tokio::test]
     async fn merge_detected_preserves_custom_and_adds_builtin() {
         let dir = temp_dir().await;
         let custom = ShellConfig {

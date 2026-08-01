@@ -14,8 +14,9 @@ let lastLen = 0;
 
 function sync() {
   const src = props.lines;
-  if (src.length < lastLen) {
-    // store 超 2000 行做过 splice 截断：全量重算
+  // 追加只 push 新增行；store 从头部 splice 截断时长度可能不变（2000→2000），
+  // 首元素引用变化才能识别，此时全量重算窗口。
+  if (src.length < lastLen || shown.value[0] !== src[0]) {
     shown.value = src.slice();
   } else {
     for (let i = lastLen; i < src.length; i++) shown.value.push(src[i]);
@@ -23,7 +24,9 @@ function sync() {
   lastLen = src.length;
 }
 sync();
-watch(() => props.lines.length, sync);
+// watch 触发条件：长度变化（追加）或首元素引用变化（截断）。只 watch 长度会漏掉
+// 「push 后马上 splice 回 2000」的截断，导致本地显示缓冲停留在旧的窗口。
+watch([() => props.lines.length, () => props.lines[0]], sync);
 
 const viewEl = ref<HTMLDivElement | null>(null);
 const stick = ref(true);
