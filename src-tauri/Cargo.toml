@@ -14,11 +14,18 @@ edition = "2021"
 name = "bg_script_management_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# 命令级集成测试：这些测试使用 tauri::test mock runtime，会链接 comctl32 v6，
+# 必须显式声明为 test target，build.rs 才能用 `rustc-link-arg-tests`
+# 单独给测试二进制嵌入 Common-Controls v6 清单（lib 单测不链接 GUI，无需清单）。
+[[test]]
+name = "commands"
+path = "tests/commands.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["test"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

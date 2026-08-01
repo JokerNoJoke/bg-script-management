@@ -164,6 +164,37 @@ pub async fn update_run_status(
     write_json(dir, HISTORY_FILE, &runs).await
 }
 
+/// 清除历史记录：`script_id = Some(id)` 时只清该脚本的，`None` 时全清。
+/// 被清除记录的 `logs/` 文件一并删除。
+pub async fn clear_history(dir: &Path, script_id: Option<&str>) -> Result<(), String> {
+    ensure_dir(dir).await?;
+    let mut runs = load_runs(dir).await;
+    let removed_ids: Vec<String> = match script_id {
+        Some(id) => {
+            let mut removed = Vec::new();
+            runs.retain(|r| {
+                if r.script_id.as_deref() == Some(id) {
+                    removed.push(r.id.clone());
+                    false
+                } else {
+                    true
+                }
+            });
+            removed
+        }
+        None => {
+            let removed = runs.iter().map(|r| r.id.clone()).collect();
+            runs.clear();
+            removed
+        }
+    };
+    write_json(dir, HISTORY_FILE, &runs).await?;
+    for rid in &removed_ids {
+        let _ = fs::remove_file(dir.join("logs").join(format!("{rid}.log"))).await;
+    }
+    Ok(())
+}
+
 pub async fn migrate_running_on_boot(dir: &Path) -> Result<usize, String> {
     ensure_dir(dir).await?;
     let mut runs = load_runs(dir).await;
@@ -301,6 +332,32 @@ mod tests {
         let rec = runs.iter().find(|r| r.command == "run-1").unwrap();
         assert_eq!(rec.status, RunStatus::Interrupted);
         assert!(rec.finished_at.is_some());
+        let _ = fs::remove_dir_all(&dir).await;
+    }
+
+    #[tokio::test]
+    async fn clear_history_filters_by_script_and_deletes_logs() {
+        let dir = temp_dir().await;
+        let mut r1 = sample_run(1);
+        r1.script_id = Some("s1".into());
+        append_run(&dir, r1).await.unwrap();
+        append_log(&dir, "run-1", "hello").await.unwrap();
+
+        let mut r2 = sample_run(2);
+        r2.script_id = Some("s2".into());
+        append_run(&dir, r2).await.unwrap();
+        append_log(&dir, "run-2", "world").await.unwrap();
+
+        clear_history(&dir, Some("s1")).await.unwrap();
+        let runs = load_runs(&dir).await;
+        assert_eq!(runs.len(), 1);
+        assert_eq!(runs[0].command, "run-2");
+        assert!(read_log(&dir, "run-1").await.is_err(), "run-1 日志应被删除");
+        assert!(read_log(&dir, "run-2").await.is_ok(), "run-2 日志应保留");
+
+        clear_history(&dir, None).await.unwrap();
+        assert!(load_runs(&dir).await.is_empty());
+        assert!(read_log(&dir, "run-2").await.is_err(), "全清后 run-2 日志应被删除");
         let _ = fs::remove_dir_all(&dir).await;
     }
 
