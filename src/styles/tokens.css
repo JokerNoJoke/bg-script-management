@@ -1,0 +1,101 @@
+/* 设计 token —— 组件一律引用变量，禁止硬编码颜色 */
+
+:root {
+  /* 色板：石墨灰蓝主色 */
+  --bg-page: #f5f6f8;
+  --bg-panel: #ffffff;
+  --bg-hover: #eef0f3;
+  --bg-active: #e6e9ee;
+  --bg-accent-soft: #e8ecf2;
+  --border: #dde1e7;
+  --border-strong: #c2c9d2;
+  --text-primary: #1f2429;
+  --text-secondary: #57616c;
+  --text-tertiary: #8a94a0;
+
+  --accent: #334155;
+  --accent-hover: #475569;
+  --accent-contrast: #ffffff;
+
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --danger-soft: #fdecec;
+
+  /* 语义色 */
+  --status-running: #d97706;
+  --status-success: #16a34a;
+  --status-failed: #dc2626;
+  --status-timeout: #d97706;
+  --status-killed: #7c3aed;
+  --status-interrupted: #64748b;
+
+  /* 日志区（始终深色，模拟终端） */
+  --bg-log: #101418;
+  --log-text: #d1d5db;
+  --log-err: #f87171;
+
+  /* 字号 */
+  --font-xs: 12px;
+  --font-sm: 13px;
+  --font-md: 14px;
+  --font-lg: 16px;
+  --font-xl: 18px;
+  --font-2xl: 22px;
+
+  /* 间距（4px 基准） */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* 圆角 */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* 阴影（仅弹窗/下拉） */
+  --shadow-sm: 0 1px 3px rgba(15, 20, 26, 0.12), 0 1px 2px rgba(15, 20, 26, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 20, 26, 0.22), 0 4px 10px rgba(15, 20, 26, 0.14);
+
+  /* 字体 */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", Consolas, "Courier New", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-page: #0f1115;
+    --bg-panel: #171a21;
+    --bg-hover: #1e232c;
+    --bg-active: #262d38;
+    --bg-accent-soft: #222936;
+    --border: #29303b;
+    --border-strong: #3b4451;
+    --text-primary: #e6e8ec;
+    --text-secondary: #9aa4af;
+    --text-tertiary: #6f7a86;
+
+    --accent: #94a3b8;
+    --accent-hover: #a9b6c8;
+    --accent-contrast: #1f2429;
+
+    --danger: #f87171;
+    --danger-hover: #fca5a5;
+    --danger-soft: #3a1d1d;
+
+    --status-running: #fbbf24;
+    --status-success: #4ade80;
+    --status-failed: #f87171;
+    --status-timeout: #fb923c;
+    --status-killed: #c084fc;
+    --status-interrupted: #94a3b8;
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55), 0 4px 10px rgba(0, 0, 0, 0.4);
+  }
+}
