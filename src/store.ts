@@ -9,8 +9,8 @@ import type {
   ShellConfig,
 } from "./types";
 
-export const MAX_LOG_LINES = 2000;
 const TOAST_MS = 2500;
+export const MAX_LOG_LINES = 2000;
 
 export interface LogLine {
   stream: "out" | "err";
@@ -22,7 +22,6 @@ export interface LiveRun {
   pid: number;
   logs: LogLine[];
   paused: boolean;
-  collapsed: boolean;
   killed: boolean;
 }
 
@@ -156,7 +155,6 @@ function ensureLive(store: Store, record: RunRecord, pid: number | null = null):
     pid: pid ?? 0,
     logs: [],
     paused: false,
-    collapsed: false,
     killed: false,
   };
   store.live[record.id] = live;

@@ -4,9 +4,10 @@ import { statusMeta, store } from "../store";
 import type { LiveRun } from "../store";
 import Button from "./ui/Button.vue";
 import Confirm from "./ui/Confirm.vue";
-import LogConsole from "./LogConsole.vue";
 
 const props = defineProps<{ live: LiveRun }>();
+
+const emit = defineEmits<{ (e: "open-log"): void }>();
 
 const rec = computed(() => props.live.record);
 const running = computed(() => rec.value.status === "running");
@@ -59,11 +60,6 @@ async function kill() {
   confirmOpen.value = false;
 }
 
-// 收起（仅已结束卡片）
-function toggleCollapse() {
-  props.live.collapsed = !props.live.collapsed;
-}
-
 // 结束态结果行
 const result = computed<{ text: string; cls: string } | null>(() => {
   switch (rec.value.status) {
@@ -93,18 +89,12 @@ const result = computed<{ text: string; cls: string } | null>(() => {
         <Button v-if="running" size="sm" variant="danger" :loading="killing" @click="confirmOpen = true">
           终止
         </Button>
-        <Button v-else size="sm" variant="ghost" @click="toggleCollapse">
-          {{ props.live.collapsed ? "展开" : "收起" }}
-        </Button>
+        <Button size="sm" variant="ghost" @click="emit('open-log')">查看日志</Button>
       </div>
     </header>
 
     <div class="card-meta mono">
       {{ rec.shellName }} · PID {{ props.live.pid }} · 来源：{{ source }}
-    </div>
-
-    <div v-if="running || !props.live.collapsed" class="card-body">
-      <LogConsole v-model:paused="props.live.paused" :lines="props.live.logs" />
     </div>
 
     <footer v-if="result" class="card-result" :class="result.cls">{{ result.text }}</footer>
@@ -190,10 +180,6 @@ const result = computed<{ text: string; cls: string } | null>(() => {
 .card-meta {
   font-size: var(--font-xs);
   color: var(--text-secondary);
-}
-
-.card-body {
-  min-width: 0;
 }
 
 .card-result {

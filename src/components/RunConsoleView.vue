@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { store } from "../store";
+import type { LiveRun } from "../store";
 import Button from "./ui/Button.vue";
 import EmptyState from "./ui/EmptyState.vue";
+import LiveLogViewerDialog from "./LiveLogViewerDialog.vue";
 import RunCard from "./RunCard.vue";
 
 // 运行中在前、已结束在后；组内按启动时间倒序
@@ -25,6 +27,14 @@ function clearFinished() {
   store.clearFinished();
   store.toast("已清除已完成的任务", "info");
 }
+
+// 日志查看：直接渲染 live 实时流
+const logOpen = ref(false);
+const logLive = ref<LiveRun | null>(null);
+function openLog(live: LiveRun) {
+  logLive.value = live;
+  logOpen.value = true;
+}
 </script>
 
 <template>
@@ -41,12 +51,14 @@ function clearFinished() {
     <EmptyState
       v-if="!runs.length"
       title="暂无运行任务"
-      description="从脚本库或「快速执行」启动任务后，将在此实时显示输出日志。"
+      description="从脚本库或「快速执行」启动任务后，可在此查看任务状态，并点击「查看日志」查阅输出。"
     />
 
     <div v-else class="cards">
-      <RunCard v-for="r in runs" :key="r.record.id" :live="r" />
+      <RunCard v-for="r in runs" :key="r.record.id" :live="r" @open-log="openLog(r)" />
     </div>
+
+    <LiveLogViewerDialog v-model:open="logOpen" :live="logLive" />
   </div>
 </template>
 

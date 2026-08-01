@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { api } from "../api";
 import type { RunRecord } from "../types";
 import Button from "./ui/Button.vue";
@@ -11,26 +11,77 @@ const props = defineProps<{ open: boolean; run: RunRecord | null }>();
 
 const emit = defineEmits<{ (e: "update:open", v: boolean): void }>();
 
+// 运行中每轮询一次磁盘日志，近实时跟随；已结束只读一次。
+const POLL_MS = 1500;
+
 const text = ref("");
 const loading = ref(false);
 const failed = ref(false);
 
-watch(
-  () => props.open,
-  async (open) => {
-    if (!open || !props.run) return;
-    text.value = "";
-    failed.value = false;
-    loading.value = true;
-    try {
-      text.value = await api.getRunLog(props.run.id);
-    } catch {
+const logEl = ref<HTMLPreElement | null>(null);
+let stick = true;
+function onScroll() {
+  const el = logEl.value;
+  if (!el) return;
+  stick = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+}
+
+let timer: number | undefined;
+let seq = 0;
+let lastRunId: string | undefined;
+
+async function load() {
+  const run = props.run;
+  if (!run) return;
+  const mySeq = ++seq;
+  loading.value = text.value === "";
+  failed.value = false;
+  try {
+    const t = await api.getRunLog(run.id);
+    if (mySeq !== seq) return;
+    text.value = t;
+    void nextTick(() => {
+      if (stick && logEl.value) logEl.value.scrollTop = logEl.value.scrollHeight;
+    });
+  } catch {
+    if (mySeq !== seq) return;
+    if (run.status === "running") {
+      // 运行中日志文件可能尚未创建（尚无输出），视为空内容
+      text.value = "";
+    } else {
       failed.value = true;
-    } finally {
-      loading.value = false;
+    }
+  } finally {
+    if (mySeq === seq) loading.value = false;
+  }
+}
+
+function stopPolling() {
+  window.clearInterval(timer);
+  timer = undefined;
+}
+
+watch(
+  () => [props.open, props.run, props.run?.status],
+  () => {
+    stopPolling();
+    const run = props.open ? props.run : null;
+    if (!run) return;
+    if (run.id !== lastRunId) {
+      lastRunId = run.id;
+      text.value = "";
+      failed.value = false;
+      stick = true;
+    }
+    void load();
+    if (run.status === "running") {
+      timer = window.setInterval(load, POLL_MS);
     }
   },
+  { immediate: true },
 );
+
+onBeforeUnmount(stopPolling);
 
 async function copy() {
   try {
@@ -67,10 +118,10 @@ async function copy() {
         <div v-if="loading" class="viewer-state">
           <Spinner :size="20" />
         </div>
-        <div v-else-if="failed" class="viewer-state">
+        <div v-else-if="failed && !text" class="viewer-state">
           <EmptyState title="日志不可用" description="日志文件不存在或读取失败。" />
         </div>
-        <pre v-else-if="text" class="viewer-log">{{ text }}</pre>
+        <pre v-else-if="text" ref="logEl" class="viewer-log" @scroll.passive="onScroll">{{ text }}</pre>
         <div v-else class="viewer-state">
           <EmptyState title="暂无日志内容" description="该次运行没有产生任何输出。" />
         </div>
