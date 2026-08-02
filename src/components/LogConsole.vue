@@ -19,7 +19,8 @@ function sync() {
   if (src.length < lastLen || shown.value[0] !== src[0]) {
     shown.value = src.slice();
   } else {
-    for (let i = lastLen; i < src.length; i++) shown.value.push(src[i]);
+    // 一次 push 批量插入新行（≤2000），单次响应式触发
+    shown.value.push(...src.slice(lastLen));
   }
   lastLen = src.length;
 }
@@ -119,9 +120,12 @@ function clearView() {
       </button>
     </div>
     <div ref="viewEl" class="log-view" @scroll.passive="onScroll">
+      <!-- v-memo:store 从不修改已存在的 LogLine 对象,只 push 新对象 → 已有行跳过
+           重渲染,每个事件只新增行的 DOM,不再全量 patch 2000 行 -->
       <div
         v-for="(line, i) in shown"
         :key="i"
+        v-memo="[line]"
         class="log-line"
         :class="{ 'is-err': line.stream === 'err' }"
       >

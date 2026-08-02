@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use tauri::ipc::Channel;
-use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 
 use crate::models::{now_ms, ExecType, OutputEvent, RunInput, RunRecord, RunStatus, ShellConfig, ShellKind};
 use crate::state::{AppState, ChildHandle};
@@ -219,6 +219,10 @@ fn gbk_decode(dec: &mut encoding_rs::Decoder, bytes: &[u8]) -> String {
 }
 
 /// 逐块读取子进程输出：追加写磁盘日志，同时推给前端。
+/// 每个 reader 打开一次日志文件并缓冲写入，EOF 时统一 flush——
+/// 旧实现每个 chunk 都 create_dir_all + open + flush，高输出进程会打爆 syscall。
+/// stdout/stderr 各持一个 O_APPEND 句柄并发追加，末尾互不覆盖；monitor 先回收
+/// reader 再发 Exit，保证磁盘日志在 Exit 事件前完整。写盘失败不阻塞实时推送。
 async fn pipe_reader(
     data_dir: PathBuf,
     run_id: String,
@@ -228,6 +232,16 @@ async fn pipe_reader(
 ) {
     let mut buf = vec![0u8; 8192];
     let mut decoder = OutputDecoder::new();
+    let _ = tokio::fs::create_dir_all(data_dir.join("logs")).await;
+    let mut writer = match tokio::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(data_dir.join("logs").join(format!("{run_id}.log")))
+        .await
+    {
+        Ok(file) => Some(tokio::io::BufWriter::with_capacity(16 * 1024, file)),
+        Err(_) => None,
+    };
     loop {
         let n = match reader.read(&mut buf).await {
             Ok(0) | Err(_) => break,
@@ -237,13 +251,22 @@ async fn pipe_reader(
         if text.is_empty() {
             continue;
         }
-        let _ = storage::append_log(&data_dir, &run_id, &text).await;
+        let ok = match writer.as_mut() {
+            Some(w) => w.write_all(text.as_bytes()).await.is_ok(),
+            None => true,
+        };
+        if !ok {
+            writer = None;
+        }
         let ev = if is_stderr {
             OutputEvent::Stderr { run_id: run_id.clone(), data: text }
         } else {
             OutputEvent::Stdout { run_id: run_id.clone(), data: text }
         };
         let _ = channel.send(ev);
+    }
+    if let Some(mut w) = writer {
+        let _ = w.flush().await;
     }
 }
 

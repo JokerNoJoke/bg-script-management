@@ -197,12 +197,16 @@ function handleOutput(store: Store, ev: OutputEvent) {
 }
 
 function pushLines(live: LiveRun, stream: LogLine["stream"], data: string) {
-  for (const text of data.split("\n")) {
-    // 去掉 Windows CRLF 遗留的 \r，保证日志区按行渲染
-    const clean = text.replace(/\r+$/, "");
-    if (clean.length === 0) continue;
-    live.logs.push({ stream, text: clean });
+  // 整批组装后一次 push：reactive 数组 push(...items) 只触发一次，避免逐行触发
+  // 响应式更新；\r 快路径（绝大多数行没有 CR 时跳过正则）。
+  const batch: LogLine[] = [];
+  for (const raw of data.split("\n")) {
+    const text = raw.endsWith("\r") ? raw.replace(/\r+$/, "") : raw;
+    if (text.length === 0) continue;
+    batch.push({ stream, text });
   }
+  if (batch.length === 0) return;
+  live.logs.push(...batch);
   if (live.logs.length > MAX_LOG_LINES) {
     live.logs.splice(0, live.logs.length - MAX_LOG_LINES);
   }
