@@ -157,6 +157,67 @@ pub async fn kill(app: &AppState, run_id: &str) -> Result<(), String> {
     kill_by_pid(pid).await
 }
 
+/// 子进程输出解码：自动识别 UTF-8 / GBK。Windows 中文控制台（java、cmd 等）
+/// 默认按系统 ANSI 代码页（简体中文=GBK/CP936）输出，硬按 UTF-8 解会乱码。
+/// 同一进程基本只用一种编码：先按 UTF-8 解，遇到非法 UTF-8 即锁定为 GBK。
+/// encoding_rs 的有状态解码器负责跨 chunk 拆分的多字节字符。
+struct OutputDecoder {
+    /// UTF-8 阶段尚未消费的尾部字节（可能是未完成的多字节序列）
+    pending: Vec<u8>,
+    /// Some = 已锁定 GBK 的有状态解码器
+    gbk: Option<encoding_rs::Decoder>,
+}
+
+impl OutputDecoder {
+    fn new() -> Self {
+        Self { pending: Vec::new(), gbk: None }
+    }
+
+    /// 追加一段原始字节，返回解码出的文本（可能为空）。
+    fn feed(&mut self, chunk: &[u8]) -> String {
+        if let Some(dec) = &mut self.gbk {
+            return gbk_decode(dec, chunk);
+        }
+        self.pending.extend_from_slice(chunk);
+        match std::str::from_utf8(&self.pending) {
+            Ok(s) => {
+                let out = s.to_owned();
+                self.pending.clear();
+                out
+            }
+            Err(e) => match e.error_len() {
+                None => {
+                    // 尾部是多字节序列没凑齐，等下一个 chunk
+                    let n = e.valid_up_to();
+                    let out = String::from_utf8_lossy(&self.pending[..n]).into_owned();
+                    self.pending.drain(..n);
+                    out
+                }
+                Some(_) => {
+                    // 出现非法 UTF-8 → 锁定 GBK，把已积累字节整体按 GBK 重解
+                    let all = std::mem::take(&mut self.pending);
+                    let mut dec = encoding_rs::GBK.new_decoder();
+                    let out = gbk_decode(&mut dec, &all);
+                    self.gbk = Some(dec);
+                    out
+                }
+            },
+        }
+    }
+}
+
+/// 用有状态 GBK 解码器解一段字节。输出 String 必须预留足量容量：
+/// `decode_to_string` 以 capacity 为输出上限，容量不够会 OutputFull 静默截断。
+fn gbk_decode(dec: &mut encoding_rs::Decoder, bytes: &[u8]) -> String {
+    let mut out = String::new();
+    let cap = dec
+        .max_utf8_buffer_length(bytes.len())
+        .unwrap_or(bytes.len());
+    out.reserve(cap);
+    let _ = dec.decode_to_string(bytes, &mut out, false);
+    out
+}
+
 /// 逐块读取子进程输出：追加写磁盘日志，同时推给前端。
 async fn pipe_reader(
     data_dir: PathBuf,
@@ -166,12 +227,13 @@ async fn pipe_reader(
     channel: Channel<OutputEvent>,
 ) {
     let mut buf = vec![0u8; 8192];
+    let mut decoder = OutputDecoder::new();
     loop {
         let n = match reader.read(&mut buf).await {
             Ok(0) | Err(_) => break,
             Ok(n) => n,
         };
-        let text = String::from_utf8_lossy(&buf[..n]).into_owned();
+        let text = decoder.feed(&buf[..n]);
         if text.is_empty() {
             continue;
         }
@@ -519,5 +581,29 @@ mod tests {
             assert!(gone, "进程仍然存在 pid={pid}");
         }
         let _ = fs::remove_dir_all(&dir).await;
+    }
+
+    #[test]
+    fn output_decoder_passes_utf8_and_ascii() {
+        let mut d = OutputDecoder::new();
+        assert_eq!(d.feed(b"hello "), "hello ");
+        assert_eq!(d.feed(&[0xE4, 0xBD]), ""); // UTF-8 多字节拆在两个 chunk
+        assert_eq!(d.feed(&[0xA0, 0x21]), "你!");
+    }
+
+    #[test]
+    fn output_decoder_falls_back_to_gbk() {
+        let mut d = OutputDecoder::new();
+        assert_eq!(d.feed(b"java: "), "java: ");
+        // "中文" 的 GBK 字节：D6D0 CEC4
+        assert_eq!(d.feed(&[0xD6, 0xD0, 0xCE, 0xC4]), "中文");
+    }
+
+    #[test]
+    fn output_decoder_handles_gbk_split_across_chunks() {
+        let mut d = OutputDecoder::new();
+        // "测" 的 GBK 字节 B2E2 拆在两个 chunk 之间
+        assert_eq!(d.feed(&[0x61, 0xB2]), "a");
+        assert_eq!(d.feed(&[0xE2, 0xCE, 0xC4]), "测文");
     }
 }

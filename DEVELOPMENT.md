@@ -82,7 +82,7 @@ Rust 后端（runner 派生子进程）
 
 1. 按 `shell_id` 查 Shell 配置，`resolve_command` 把输入解析为进程命令 —— **命令/文件路径/工作目录一律走 args 数组，不做字符串拼接**，避免注入与空格问题
 2. 生成 `runId`，历史写 `running` 记录，注册 `ChildHandle { pid, killed }`
-3. 发 `start` 事件 → 两个 `pipe_reader` 任务分别读 stdout/stderr：**追加写磁盘日志 + 经 Channel 推给前端**
+3. 发 `start` 事件 → 两个 `pipe_reader` 任务分别读 stdout/stderr：**追加写磁盘日志 + 经 Channel 推给前端**。输出按 **UTF-8 优先、遇到非法字节回退 GBK** 解码后再落盘（Windows 中文控制台如 java/cmd 常按 GBK/CP936 输出，硬按 UTF-8 解会乱码）
 4. `monitor_task` 等待子进程（`timeout_sec` 后杀进程树），回收 reader 保证日志完整，回写状态并发 `exit` 事件
 
 **终止任务**：置 `killed` 标记 → Windows `taskkill /PID <pid> /T /F`（杀整棵树），Unix 对进程组 `SIGTERM` + 800ms 后 `SIGKILL`。状态由 monitor 统一回写为 `killed`。
@@ -108,6 +108,6 @@ cargo test                 # 单元测试（runner/storage/models/detect）+ 集
 
 ## 测试约定
 
-- Rust 单元测试覆盖：命令解析（各 Shell/类型）、日志落盘与 500 条上限淘汰、清空历史联删日志、Shell 增删约束、启动中断迁移、`OutputEvent`/`ShellKind` 的 camelCase 序列化契约。
+- Rust 单元测试覆盖：命令解析（各 Shell/类型）、日志落盘与 500 条上限淘汰、清空历史联删日志、Shell 增删约束、启动中断迁移、`OutputEvent`/`ShellKind` 的 camelCase 序列化契约、输出解码自动识别（UTF-8/GBK，含跨 chunk 拆分字符）。
 - 集成测试（`tests/commands.rs`）用 `tauri::test` mock runtime 全链路调用命令（Cargo.toml 中需显式声明 test target + Windows Common-Controls v6 清单）。
 - 修改 IPC 契约时，务必同步更新 `models.rs`、`src/types.ts` 与序列化回归测试。

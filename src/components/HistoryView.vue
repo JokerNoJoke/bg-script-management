@@ -72,7 +72,7 @@ const columns: TableColumn[] = [
   { key: "status", label: "状态", width: "90px", slot: "status" },
   { key: "exitCode", label: "退出码", width: "64px", align: "center", slot: "exitCode" },
   { key: "duration", label: "耗时", width: "80px", slot: "duration" },
-  { key: "actions", label: "操作", width: "110px", slot: "actions" },
+  { key: "actions", label: "操作", width: "128px", slot: "actions" },
 ];
 
 const pad = (n: number) => String(n).padStart(2, "0");

@@ -43,6 +43,7 @@ cd src-tauri && cargo test  # Rust unit + integration tests
 - **`ShellKind` 显式重命名为小写**(`powershell`/`cmd`/`bash`/`sh`)。serde 默认 camelCase 会产出 `powerShell`,破坏 `shells.json` 回读。
 - **`OutputEvent` 需逐 variant 声明 `rename_all`**(枚举级只重命名 tag 不重命名字段)—— 否则 `runId` 以 `run_id` 传到前端,live 卡片挂掉。
 - **`resolve_command` 用 args 数组构建进程,绝不字符串拼接** —— 命令/路径/cwd 走 argv 防注入与空格。别把它"简化"成插值。
+- **进程输出先按 UTF-8 解、遇非法字节回退 GBK** —— Windows 中文控制台(java/cmd)按 GBK 输出,硬解 UTF-8 会静默乱码。别把 `pipe_reader` 的解码"简化"回 `from_utf8_lossy`。
 
 ## Frontend gotchas
 
