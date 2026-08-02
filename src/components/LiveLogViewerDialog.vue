@@ -43,6 +43,7 @@ watch(
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  min-height: 0;
 }
 
 .live-bar {
@@ -50,6 +51,7 @@ watch(
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  flex: none;
 }
 .live-meta {
   font-size: var(--font-xs);

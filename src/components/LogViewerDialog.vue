@@ -2,7 +2,6 @@
 import { nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { api } from "../api";
 import type { RunRecord } from "../types";
-import Button from "./ui/Button.vue";
 import EmptyState from "./ui/EmptyState.vue";
 import Modal from "./ui/Modal.vue";
 import Spinner from "./ui/Spinner.vue";
@@ -82,14 +81,6 @@ watch(
 );
 
 onBeforeUnmount(stopPolling);
-
-async function copy() {
-  try {
-    await navigator.clipboard.writeText(text.value);
-  } catch {
-    /* 剪贴板不可用时忽略 */
-  }
-}
 </script>
 
 <template>
@@ -104,14 +95,6 @@ async function copy() {
         <span v-if="props.run" class="viewer-meta mono">
           {{ props.run.shellName }} · {{ new Date(props.run.startedAt).toLocaleString() }}
         </span>
-        <Button
-          size="sm"
-          variant="ghost"
-          :disabled="loading || failed || !text"
-          @click="copy"
-        >
-          复制全部
-        </Button>
       </div>
 
       <div class="viewer-body">
@@ -135,6 +118,7 @@ async function copy() {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  min-height: 0;
 }
 
 .viewer-bar {
@@ -142,6 +126,7 @@ async function copy() {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  flex: none;
 }
 .viewer-meta {
   font-size: var(--font-xs);
@@ -152,16 +137,23 @@ async function copy() {
 }
 
 .viewer-body {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
   min-height: 160px;
+  overflow: hidden;
 }
 .viewer-state {
   display: flex;
+  flex: 1;
   align-items: center;
   justify-content: center;
 }
 
 .viewer-log {
   margin: 0;
+  flex: 0 1 auto;
+  min-height: 0;
   max-height: 60vh;
   overflow: auto;
   padding: var(--space-4);

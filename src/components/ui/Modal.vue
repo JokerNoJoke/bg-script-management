@@ -100,6 +100,10 @@ onBeforeUnmount(() => document.removeEventListener("keydown", onKey));
   color: var(--text-primary);
 }
 .modal-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   padding: var(--space-5);
   overflow-y: auto;
 }

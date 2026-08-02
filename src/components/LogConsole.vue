@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { nextTick, onMounted, ref, watch } from "vue";
 import type { LogLine } from "../store";
 
 const props = withDefaults(defineProps<{ lines: LogLine[]; paused?: boolean }>(), {
@@ -70,16 +70,6 @@ function togglePause() {
   emit("update:paused", !props.paused);
 }
 
-const copyText = computed(() => shown.value.map((l) => l.text).join("\n"));
-
-async function copy() {
-  try {
-    await navigator.clipboard.writeText(copyText.value);
-  } catch {
-    /* 剪贴板不可用时忽略 */
-  }
-}
-
 function clearView() {
   shown.value = [];
   lastLen = props.lines.length;
@@ -108,22 +98,6 @@ function clearView() {
         <svg v-else viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true">
           <rect x="4.5" y="3" width="2.6" height="10" rx="0.8" />
           <rect x="8.9" y="3" width="2.6" height="10" rx="0.8" />
-        </svg>
-      </button>
-      <button class="icon-btn" title="复制全部" type="button" @click="copy">
-        <svg
-          viewBox="0 0 24 24"
-          width="13"
-          height="13"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <rect x="9" y="9" width="11" height="11" rx="2" />
-          <path d="M5 15V5a2 2 0 0 1 2-2h10" />
         </svg>
       </button>
       <button class="icon-btn" title="清空显示" type="button" @click="clearView">
@@ -162,6 +136,8 @@ function clearView() {
 .log-console {
   display: flex;
   flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
   border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--bg-log);
@@ -169,6 +145,7 @@ function clearView() {
 
 .log-toolbar {
   display: flex;
+  flex: none;
   justify-content: flex-end;
   gap: 2px;
   padding: 4px 6px;
@@ -193,6 +170,8 @@ function clearView() {
 }
 
 .log-view {
+  flex: 0 1 auto;
+  min-height: 0;
   max-height: 360px;
   overflow: auto;
   padding: 8px 10px 12px;
