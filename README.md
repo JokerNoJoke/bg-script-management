@@ -19,6 +19,20 @@ bun run tauri dev   # 开发模式运行
 bun run tauri build # 打包应用(产物在 src-tauri/target/release/)
 ```
 
+## 发布新版本
+
+GitHub Actions 自动构建并发布 Windows 与 macOS(Apple Silicon / Intel)安装包到 [Releases](https://github.com/JokerNoJoke/bg-script-management/releases)。无需本地打包。
+
+1. 更新版本号:改 `src-tauri/tauri.conf.json` 的 `version`
+2. 推送代码后打标签:
+   ```bash
+   git tag v1.0.0   # 版本号与 tauri.conf.json 保持一致
+   git push origin main --tags
+   ```
+3. 在 Actions 页查看构建进度,完成后安装包出现在 Releases 页
+
+> 直接推 `main`(不打 tag)也会触发构建,并使用当前版本号自动创建对应 Release(同版本更新同一 Release)。构建产物为未签名,Windows 首次运行会有 SmartScreen 提示。
+
 ## 文档
 
 - **开发者** 请阅读 [DEVELOPMENT.md](DEVELOPMENT.md)(架构、数据模型、运行流程、测试)。
